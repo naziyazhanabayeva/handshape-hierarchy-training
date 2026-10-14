@@ -1,0 +1,8 @@
+# Environment for train/train_teachers.py, evaluation/ and data/ split tools.
+# On a Linux GPU server use: pip install "tensorflow[and-cuda]>=2.16" instead of the tensorflow line.
+tensorflow>=2.16
+keras>=3.3
+pandas
+numpy
+scikit-learn
+pillow
