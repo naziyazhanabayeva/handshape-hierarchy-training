@@ -19,12 +19,13 @@ python -m data.check_split          # verify: no video / duplicate / near-duplic
 
 ## Training on a GPU server
 
-Copy to the server:
-- this `classify_handshapes/` folder (code + `data/splits/`; `models/` is not needed),
-- the dataset folder with one subfolder per class (`1_1/`, `1_3/`, ..., `7_6_4/`).
+Needed on the server: this repo (code + `data/splits/`) and the dataset
+folder with one subfolder per class (`1_1/`, `1_3/`, ..., `7_6_4/`; not in
+the repo, copy it separately).
 
 ```bash
-cd classify_handshapes
+git clone https://github.com/naziyazhanabayeva/handshape-hierarchy-training.git
+cd handshape-hierarchy-training
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-train.txt          # Linux GPU: pip install "tensorflow[and-cuda]>=2.16" first
 tmux new -s handshapes
