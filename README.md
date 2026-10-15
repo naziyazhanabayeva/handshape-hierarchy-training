@@ -1,74 +1,88 @@
-# classify_handshapes
+# Handshape classification: experiments A–D
 
-Handshape classifier over 34 fine-grained classes (the Fig. 5A classes of the
-SLAN-tool paper), EfficientNetB4. Three methods trained and compared on the
-same split:
-- **flat**: one model over all 34 classes (`flat_34`, 1 model),
-- **row hierarchy**: broad model over 7 HamNoSys row families (selected
-  fingers) + 7 family models (`broad_category`, `subcategory_1..7`, 8 models),
-- **column hierarchy** (original paper, Fig. 5C/5D): broad model over 9 HamNoSys
-  column categories (finger shape) + 8 category models; category 4 (Hooked)
-  has one class and needs no model (`column_category`,
-  `column_subcategory_*`, 9 models).
+EfficientNetB4 handshape classifiers for the SLAN-tool paper. The four
+experiments follow the grouping strategies of the paper's Fig. 5 (HamNoSys 4
+handshape chart, Hanke 2010). All of them use the same 34 classes and the
+same leakage-free split, so their test results are directly comparable.
 
-## Leakage-free split
+| Experiment | Fig. 5 | What is trained | Models |
+|---|---|---|---|
+| **A** | 5A | one model over all 34 classes | 1 |
+| **B** | 5B | broad model over 10 HamNoSys **row** categories + one model per row | 10 |
+| **C** | 5C | broad model over 9 HamNoSys **column** categories | 1 |
+| **D** | 5D | one model per column category; with C = the original paper's full hierarchy | 8 |
 
-All 18 models share one train/val/test split, `data/splits/grouped_split.csv`
-(80/10/10 per class). Frames of the same source video, byte-identical files
-and near-duplicate images are always in the same split. Images whose identical
-copies carry two different labels are excluded (`data/splits/label_conflicts.csv`:
-55 pairs 3_1/3_2, 5 pairs 3_1/5_1). Classes 1_5 and 7_6_2 are excluded (too few
-images).
+Class `r_c` is the chart cell in row `r` (selected fingers) and column `c`
+(finger shape); `7_r_c` is the thumb-opposition block. Groupings are derived
+from these positions (`data/experiments.py`, table in
+`data/splits/class_mapping.csv`). Classes 1_5 (4 images) and 7_6_2 (19
+images) are excluded as too small, so A has 34 of the 36 Fig. 5A classes.
+Category B8 (7_2_2) and C4 (5_4) contain a single class and need no model.
 
-```bash
-python -m data.make_grouped_split   # rebuild the split (deterministic)
-python -m data.check_split          # verify: no video / duplicate / near-duplicate crosses splits
-```
+## Data split (`data/splits/`)
 
-## Training on a GPU server
+- `grouped_split.csv`: one 80/10/10 train/val/test assignment per image,
+  shared by all 20 models, stratified per class. Frames of the same source
+  video, byte-identical files and near-duplicate images (perceptual hash) are
+  always in the same split. Built by `python -m data.make_grouped_split`
+  (deterministic).
+- `label_conflicts.csv`: 120 images excluded because identical copies carry
+  two different labels (55 pairs 3_1/3_2, 5 pairs 3_1/5_1).
+- `class_mapping.csv`: class → HamNoSys row/column and B/C category.
 
-Needed on the server: this repo (code + `data/splits/`) and the dataset
-folder with one subfolder per class (`1_1/`, `1_3/`, ..., `7_6_4/`; not in
-the repo, copy it separately).
+Checks run automatically before training:
+- `python -m data.check_split`: no video, identical file or near-duplicate
+  crosses splits;
+- `python -m data.check_pipeline`: no double rescaling (raw [0, 255] input,
+  exactly one 1/255 layer in the model), augmentation (rotation ±5°,
+  translation, zoom, brightness, no flips) applied once and only to training
+  data, identical preprocessing at evaluation, disjoint splits for every
+  model.
+
+## Running on the lab computers
 
 ```bash
 git clone https://github.com/naziyazhanabayeva/handshape-hierarchy-training.git
 cd handshape-hierarchy-training
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-train.txt          # Linux GPU: pip install "tensorflow[and-cuda]>=2.16" first
+pip install "tensorflow[and-cuda]>=2.16"   # Linux GPU
+pip install -r requirements-train.txt
 tmux new -s handshapes
-export TEACHER_DATASET_DIR=/path/to/dataset
-bash run_training.sh
+export TEACHER_DATASET_DIR=/path/to/dataset  # contains 1_1/, 1_3/, ..., 7_6_4/
+bash run_experiments.sh A                    # or B, or "C D", or nothing = all
 ```
 
-`run_training.sh` checks the split for leakage, trains the 18 models of the three
-methods (`models/teachers_grouped/`, about 25 GPU hours) and evaluates them (`results/paper/`). It is
-resumable: re-running skips finished models. Detach with `Ctrl-b d`, reattach
-with `tmux attach -t handshapes`.
+The dataset is not in the repo; copy it separately. Detach with `Ctrl-b d`,
+reattach with `tmux attach -t handshapes`. Re-running skips finished models.
 
-### Splitting the training over two computers
+Approximate GPU time: A ≈ 6 h, B ≈ 11 h, C ≈ 6 h, D ≈ 5 h. Run C and D on
+the same machine (D's full 34-class result needs C's broad model). For
+example: machine 1 `bash run_experiments.sh A C D`, machine 2
+`bash run_experiments.sh B`.
 
-Training is resumable per model, so the 18 models can be split, e.g.:
+**Combining machines:** copy the finished experiment folder from
+`models/experiments/` of one machine into `models/experiments/` of the other
+(e.g. `B_rows_10/`), then run `python -m evaluation.evaluate_experiments` to
+produce the comparison of all experiments.
 
-```bash
-# computer 1 (~13 h)
-python -m train.train_teachers flat_34 broad_category subcategory_1 subcategory_2 subcategory_3 subcategory_4 subcategory_5 subcategory_6 subcategory_7
-# computer 2 (~12 h)
-python -m train.train_teachers column_category column_subcategory_1 column_subcategory_2 column_subcategory_3 column_subcategory_5 column_subcategory_6 column_subcategory_7 column_subcategory_8 column_subcategory_9
-```
+## Results for the paper (`results/experiments/`)
 
-Then copy all folders of `models/teachers_grouped/` to one computer and run
-`python -m evaluation.evaluate_hierarchy`.
-
-## Results for the paper (`results/paper/`)
-
-| File | Content |
+| Folder | Contents |
 |---|---|
-| `table_dataset.tex` | Table 2: images per family and split |
-| `table_dataset_columns.tex` | The same per column category (Fig. 5C) |
-| `table_comparison.tex` | The three methods: 34-class accuracy, macro-F1, weighted-F1, 95% bootstrap CIs |
-| `table_models.tex` | Each model of both hierarchies: test accuracy, macro-F1, majority-class baseline |
-| `summary.json` | All numbers above + routing accuracies + pairwise McNemar tests |
-| `per_class_report.csv` | Precision / recall / F1 per class, each method |
-| `confusion_matrix_34_{flat,row,column}.csv` | 34x34 confusion matrices |
-| `predictions.csv` | Per-image predictions |
+| `dataset/` | split tables per class (with HamNoSys row/column), per B row category, per C column category; `leakage_check.txt`, `pipeline_check.txt` |
+| `A_flat_34/` | `table_A.tex`, per-class report, 34×34 confusion matrix, predictions |
+| `B_rows_10/` | `table_B.tex` (broad + each row model + full hierarchy), 10×10 and 34×34 confusion matrices, per-class report, predictions |
+| `C_columns_9/` | `table_C.tex`, 9×9 confusion matrix, predictions |
+| `D_column_subcategories/` | `table_D.tex` (each column model + full hierarchy C→D), per-class report, 34×34 confusion matrix, predictions |
+| `comparison/` | `table_comparison.tex` (A vs B vs C+D: 34-class accuracy, macro-F1 with 95% CIs), `table_broad_level.tex` (B vs C broad), `summary.json` (all numbers + McNemar tests) |
+
+Sub-model rows use the test images of the model's own category; the full
+hierarchy rows route every test image through the broad model.
+
+## Training recipe (all models)
+
+EfficientNetB4 with ImageNet weights, 380×380 input; stage 1 linear probe
+(frozen backbone, Adam 1e-3, ≤50 epochs, early stopping patience 5); stage 2
+fine-tuning of block6/block7/top with backbone BatchNorm frozen (Adam 1e-5,
+≤30 epochs, patience 5); dropout 0.2; balanced class weights; best checkpoint
+by validation accuracy. See `data/const.py` and `train/teacher_model.py`.

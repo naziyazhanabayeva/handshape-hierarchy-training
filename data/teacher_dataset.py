@@ -217,3 +217,16 @@ def load_column_subcategory_datasets(column):
         for df in load_split_dataframes()
     ]
     return build_datasets(*splits)
+
+
+def load_experiment_datasets(category_of=None, keep=None):
+    """Datasets for one model of an experiment (see data/experiments.py):
+    labels are category_of(class) (or the class itself if None), restricted to
+    the classes in `keep` (or all classes if None). Always the shared split."""
+    splits = []
+    for df in load_split_dataframes():
+        if keep is not None:
+            df = df[df['subcategory'].isin(keep)]
+        label = df['subcategory'] if category_of is None else df['subcategory'].map(category_of)
+        splits.append(df.assign(label=label))
+    return build_datasets(*splits)
