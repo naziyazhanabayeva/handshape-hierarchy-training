@@ -34,10 +34,9 @@ Checks run automatically before training:
 - `python -m data.check_split`: no video, identical file or near-duplicate
   crosses splits;
 - `python -m data.check_pipeline`: no double rescaling (raw [0, 255] input,
-  exactly one 1/255 layer in the model), augmentation (rotation ±5°,
-  translation, zoom, brightness, no flips) applied once and only to training
-  data, identical preprocessing at evaluation, disjoint splits for every
-  model.
+  exactly one 1/255 layer in the model), RandAugment (no flips) applied once
+  and only to training data, single-stage fine-tuning set-up, identical
+  preprocessing at evaluation, disjoint splits for every model.
 
 ## Running on the lab computers
 
@@ -45,7 +44,7 @@ Checks run automatically before training:
 git clone https://github.com/naziyazhanabayeva/handshape-hierarchy-training.git
 cd handshape-hierarchy-training
 python3 -m venv .venv && source .venv/bin/activate
-pip install "tensorflow[and-cuda]>=2.16"   # Linux GPU
+pip install "tensorflow[and-cuda]>=2.18"   # Linux GPU
 pip install -r requirements-train.txt
 tmux new -s handshapes
 export TEACHER_DATASET_DIR=/path/to/dataset  # contains 1_1/, 1_3/, ..., 7_6_4/
@@ -55,7 +54,8 @@ bash run_experiments.sh A                    # or B, or "C D", or nothing = all
 The dataset is not in the repo; copy it separately. Detach with `Ctrl-b d`,
 reattach with `tmux attach -t handshapes`. Re-running skips finished models.
 
-Approximate GPU time: A ≈ 6 h, B ≈ 11 h, C ≈ 6 h, D ≈ 5 h. Run C and D on
+Approximate GPU time (depends on the GPU and on when early stopping
+triggers): A 4–10 h, B 8–20 h, C 4–10 h, D 4–10 h. Run C and D on
 the same machine (D's full 34-class result needs C's broad model). For
 example: machine 1 `bash run_experiments.sh A C D`, machine 2
 `bash run_experiments.sh B`.
@@ -79,10 +79,23 @@ produce the comparison of all experiments.
 Sub-model rows use the test images of the model's own category; the full
 hierarchy rows route every test image through the broad model.
 
-## Training recipe (all models)
+## Training recipe (all models): the original SLAN-tool paper's
 
-EfficientNetB4 with ImageNet weights, 380×380 input; stage 1 linear probe
-(frozen backbone, Adam 1e-3, ≤50 epochs, early stopping patience 5); stage 2
-fine-tuning of block6/block7/top with backbone BatchNorm frozen (Adam 1e-5,
-≤30 epochs, patience 5); dropout 0.2; balanced class weights; best checkpoint
-by validation accuracy. See `data/const.py` and `train/teacher_model.py`.
+As reported in the paper: ImageNet-pretrained EfficientNetB4 (380×380 input)
+**fine-tuned in one stage** (no linear probing) for up to **50 epochs** with
+**early stopping, patience 5** (validation accuracy, best weights kept),
+**Adam**, **dropout 0.2** on the top layers, **RandAugment** on training
+images (2 random operations per image from auto-contrast, equalize,
+brightness, color, contrast, posterize, rotation, sharpness, shear,
+translation, solarize; no flips).
+
+Not reported in the paper, chosen here: learning rate 1e-4 (`LEARNING_RATE`
+env var), batch size 32 (`BATCH_SIZE` env var), backbone BatchNorm layers
+frozen (Keras' recommendation for fine-tuning EfficientNet), balanced class
+weights, GAP + BatchNorm + Dropout + softmax head. See `data/const.py` and
+`train/teacher_model.build_finetune_model`.
+
+**GPU memory:** the whole backbone trains, so this needs much more memory than
+training the head only. If training stops with an out-of-memory (OOM) error,
+re-run with a smaller batch: `export BATCH_SIZE=16` (or 8). An interrupted
+model resumes from its last finished epoch.

@@ -3,8 +3,10 @@ Guards against the bugs this project has had before:
 
   1. no double rescaling: the loader feeds raw [0, 255] pixels and the model
      contains exactly one 1/255 Rescaling layer (EfficientNetB4's own);
-  2. augmentation is applied exactly once, only to training data, the model
-     itself has no augmentation layers, rotation is +-5 degrees, no flips;
+  2. augmentation (RandAugment, as in the original paper) is applied exactly
+     once, only to training data, contains no flips, and the model itself has
+     no augmentation layers; the model is set up for single-stage
+     fine-tuning (backbone trainable, backbone BatchNorm frozen);
   3. validation/test pipelines are deterministic (no augmentation);
   4. evaluation preprocessing is identical to training preprocessing;
   5. for every model of every experiment, no image is in two of its splits
@@ -20,7 +22,8 @@ import tensorflow as tf
 
 import data.teacher_dataset as td
 from data.experiments import EXPERIMENTS, FINE_CLASSES
-from train.teacher_model import build_teacher_model
+from data.const import PAPER_LEARNING_RATE
+from train.teacher_model import build_finetune_model
 
 failures = []
 
@@ -54,38 +57,43 @@ def main():
     again = first_batch(td._make_dataset(sample, classes, augment=False, shuffle=False))
     check(np.array_equal(raw, again), 'validation/test pipeline is deterministic (no augmentation)')
 
-    # 2. Augmentation applied exactly once, only in the training pipeline.
+    # 2. Augmentation (RandAugment) applied exactly once, only in training.
     calls = {'n': 0}
-    original = td._augment_batch
+    original = td._augment_image
 
-    def counting(images, labels):
+    def counting(image, label):
         calls['n'] += 1
-        return original(images, labels)
+        return original(image, label)
 
-    td._augment_batch = counting
+    td._augment_image = counting
     try:
         td._make_dataset(sample, classes, augment=False, shuffle=False)
         check(calls['n'] == 0, 'no augmentation in validation/test pipeline')
         aug = first_batch(td._make_dataset(sample, classes, augment=True, shuffle=False))
         check(calls['n'] == 1, 'augmentation applied exactly once in training pipeline ({} map)'.format(calls['n']))
     finally:
-        td._augment_batch = original
+        td._augment_image = original
     check(not np.allclose(aug, raw), 'training images are actually augmented')
-    check(aug.max() > 1.5, 'augmented pixels stay in [0, 255] range (max {:.1f})'.format(aug.max()))
-    layer_types = [type(l).__name__ for l in td._AUGMENTER.layers]
-    check('RandomFlip' not in layer_types, 'no horizontal/vertical flip (handshape chirality)')
-    rotation = [l for l in td._AUGMENTER.layers if type(l).__name__ == 'RandomRotation']
-    factor = np.ravel(rotation[0].factor) if rotation else []
-    check(len(rotation) == 1 and np.allclose(np.abs(factor), 5 / 360),
-          'one RandomRotation of +-5 degrees (augmenter layers: {})'.format(layer_types))
+    check(aug.min() >= 0.0 and aug.max() <= 255.0 and aug.max() > 1.5,
+          'augmented pixels stay in [0, 255] (min {:.1f}, max {:.1f})'.format(aug.min(), aug.max()))
+    check(type(td._AUGMENTER).__name__ == 'RandAugment', 'augmentation is RandAugment (original paper)')
+    ops = [type(l).__name__ for l in getattr(td._AUGMENTER, '_layers', [])]
+    check(bool(ops) and not any('Flip' in o for o in ops),
+          'RandAugment operations contain no flips: {}'.format(ops))
 
-    # 1/2. Model: exactly one 1/255 rescaling, no augmentation layers inside.
-    model = build_teacher_model('check', 3)
+    # 1/2. Model: exactly one 1/255 rescaling, no augmentation layers inside,
+    # single-stage fine-tuning (backbone trainable, backbone BatchNorm frozen).
+    model = build_finetune_model('check', 3, PAPER_LEARNING_RATE)
     scales = [np.ravel(l.scale) for l in model.layers if type(l).__name__ == 'Rescaling']
     n_255 = sum(np.allclose(s, 1 / 255.0) for s in scales)
     check(n_255 == 1, 'model has exactly one 1/255 Rescaling layer (found {})'.format(n_255))
     random_layers = [l.name for l in model.layers if type(l).__name__.startswith('Random')]
     check(not random_layers, 'model contains no augmentation layers {}'.format(random_layers))
+    convs = [l for l in model.layers if type(l).__name__ in ('Conv2D', 'DepthwiseConv2D')]
+    bns = [l for l in model.layers if type(l).__name__ == 'BatchNormalization' and l.name != 'head_bn']
+    check(all(l.trainable for l in convs) and not any(l.trainable for l in bns),
+          'single-stage fine-tuning: all {} backbone conv layers trainable, {} backbone BatchNorm frozen'.format(
+              len(convs), len(bns)))
 
     # 5. Per-model split integrity for every experiment.
     split_of = {p: s for df, s in ((train_df, 'train'), (val_df, 'val'), (test_df, 'test')) for p in df['path']}

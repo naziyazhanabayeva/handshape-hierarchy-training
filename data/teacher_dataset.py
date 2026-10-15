@@ -37,7 +37,7 @@ from sklearn.model_selection import train_test_split
 
 from data.const import (
     BROAD_CATEGORIES, IMG_SIZE, BATCH_SIZE, TEACHER_DATASET_DIR, SPLIT_FILE, column_category,
-    TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT,
+    TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDAUGMENT_NUM_OPS, RANDAUGMENT_FACTOR,
 )
 
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
@@ -106,27 +106,21 @@ def _load_image(path, label, num_classes):
     return image, label
 
 
-# Built once at module load time, not inside _augment_batch: these layers
-# hold internal tf.Variable state (a random seed generator), and creating a
-# new one on every tf.data.Dataset.map() call is rejected by Keras 3 with
-# "tf.function only supports singleton tf.Variables created on the first
-# call". Geometric ops (rotation/translation/zoom) are scale-independent;
-# RandomBrightness defaults to operating on a [0, 255] value range, which
-# matches the raw pixel scale we now feed it (see _load_image above).
-_AUGMENTER = tf.keras.Sequential([
-    tf.keras.layers.RandomRotation(5 / 360),
-    tf.keras.layers.RandomTranslation(0.1, 0.1),
-    tf.keras.layers.RandomZoom(0.25),
-    tf.keras.layers.RandomBrightness(0.25),
-])
+# RandAugment, as in the original SLAN-tool paper. Built once at module load
+# time: the layer holds tf.Variable state (its random generator), and creating
+# a new one inside a tf.data.Dataset.map() call is rejected by Keras 3.
+# value_range=(0, 255) matches the raw pixel scale we feed (see _load_image).
+# Its operations contain no flips: mirroring can change a handshape's label
+# (thumb position, crossing direction are chirality-dependent).
+_AUGMENTER = tf.keras.layers.RandAugment(
+    value_range=(0, 255), num_ops=RANDAUGMENT_NUM_OPS, factor=RANDAUGMENT_FACTOR,
+)
 
 
-def _augment_batch(images, labels):
-    # No horizontal flip: for handshapes, mirroring can change/invalidate
-    # the label (e.g. thumb position, crossing direction are
-    # chirality-dependent). Each layer samples an independent random
-    # transform per example within the batch.
-    return _AUGMENTER(images, training=True), labels
+def _augment_image(image, label):
+    # Applied to single images (before batching), so every image gets its
+    # own random choice of operations.
+    return _AUGMENTER(image, training=True), label
 
 
 def _make_dataset(df, classes, augment, shuffle):
@@ -143,9 +137,9 @@ def _make_dataset(df, classes, augment, shuffle):
         lambda path, label: _load_image(path, label, num_classes),
         num_parallel_calls=tf.data.AUTOTUNE,
     )
-    ds = ds.batch(BATCH_SIZE)
     if augment:
-        ds = ds.map(_augment_batch, num_parallel_calls=tf.data.AUTOTUNE)
+        ds = ds.map(_augment_image, num_parallel_calls=tf.data.AUTOTUNE)
+    ds = ds.batch(BATCH_SIZE)
     return ds.prefetch(tf.data.AUTOTUNE)
 
 

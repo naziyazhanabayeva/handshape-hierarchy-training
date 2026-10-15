@@ -70,3 +70,29 @@ def unfreeze_for_finetuning(model, learning_rate,
         metrics=['accuracy'],
     )
     return model
+
+
+def build_finetune_model(model_name, num_classes, learning_rate, top_dropout_rate=TOP_DROPOUT_RATE,
+                         weights=WEIGHTS) -> Model:
+    """Original SLAN-tool paper recipe: one fine-tuning stage, no linear
+    probe. ImageNet-pretrained EfficientNetB4 with the whole backbone
+    trainable from the start, GAP + BatchNorm + Dropout(0.2) + softmax head,
+    Adam. The backbone's BatchNorm layers stay frozen (inference mode), as
+    Keras recommends when fine-tuning EfficientNet: their ImageNet running
+    statistics would otherwise be overwritten by noisy per-batch statistics.
+    """
+    base_model = EfficientNetB4(include_top=False, weights=weights, input_shape=(IMG_SIZE, IMG_SIZE, 3))
+    base_model.trainable = True
+    for layer in base_model.layers:
+        if isinstance(layer, layers.BatchNormalization):
+            layer.trainable = False
+
+    x = layers.GlobalAveragePooling2D(name='avg_pool')(base_model.output)
+    x = layers.BatchNormalization(name='head_bn')(x)
+    x = layers.Dropout(top_dropout_rate, name='top_dropout')(x)
+    outputs = layers.Dense(num_classes, activation='softmax', name='pred')(x)
+
+    model = Model(base_model.input, outputs, name=model_name)
+    model.compile(optimizer=Adam(learning_rate=learning_rate), loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+    return model

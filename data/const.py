@@ -21,7 +21,8 @@ import errno
 NUM_CLASSES_TRAIN = 3
 NUM_CLASSES_TEST = 3
 IMG_SIZE = 380  # EfficientNetB4 native resolution
-BATCH_SIZE = 32  # matches the recipe already proven on this dataset/GPU in old/train_hierarchical.py
+# Overridable (export BATCH_SIZE=16) if full fine-tuning runs out of GPU memory.
+BATCH_SIZE = int(os.environ.get('BATCH_SIZE', 32))
 SAVE_PERIOD = 1
 LEARNING_RATE = 1e-3  # stage 1: linear probe, frozen backbone, head only ("Adam default from paper")
 UNFREEZE_LEARNING_RATE = 1e-4
@@ -41,6 +42,22 @@ HISTORY_NAME= MODEL_NAME+'HISTORY'
 WEIGHTS = "imagenet"  # tf.keras.applications.EfficientNetB4 only supports 'imagenet' or None
 PATIENCE = 5  # paper: early stopping patience 5
 N_EPOCHS_UNFREEZE=100
+
+# --- Original SLAN-tool paper recipe (used by train/train_experiment.py) ---
+# "We fine-tuned the EfficientNetB4 model over 50 epochs, using early stopping
+# with a patience of 5 epochs. The Adam optimizer ... dropout ... 0.2 ...
+# data augmentation was performed using RandAugment." One fine-tuning stage,
+# no linear probing. The paper does not report the learning rate; 1e-4 is a
+# standard Adam rate for fine-tuning a pretrained network (1e-3 tends to
+# destroy the ImageNet features when the whole backbone is trainable).
+PAPER_EPOCHS = 50
+PAPER_PATIENCE = 5
+PAPER_LEARNING_RATE = float(os.environ.get('LEARNING_RATE', 1e-4))
+# RandAugment (keras.layers.RandAugment defaults): 2 random operations per
+# image out of auto-contrast, equalize, brightness, color, contrast,
+# posterize, rotation, sharpness, shear, translation, solarize (no flips).
+RANDAUGMENT_NUM_OPS = 2
+RANDAUGMENT_FACTOR = 0.5
 ITERATION='1'
 STUDENT_ANNOTATIONS='student_train_drop_if<0.7.csv'
 NEW_DATASET_ANNOTATIONS='dataset_labels.csv'#'new_train2.csv'
