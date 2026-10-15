@@ -1,20 +1,25 @@
-"""Evaluate the 8 retrained models on the shared leakage-free test split and
-write every number/table needed for the paper to results/paper/.
+"""Evaluate both methods on the shared leakage-free test split and write
+every number/table needed for the paper to results/paper/.
+
+Methods (same split, same EfficientNetB4 recipe):
+  flat       one model over all 34 fine-grained classes (flat_34)
+  hierarchy  broad model routes to one of 7 families, that family's model
+             predicts the fine class (broad_category + subcategory_1..7)
 
 Outputs:
   table_dataset.tex / dataset_distribution.csv
       per broad family: fine classes, total, train, val, test images
+  table_comparison.tex / summary.json
+      flat vs hierarchy on all test images: 34-class accuracy, macro-F1,
+      weighted-F1 (95% bootstrap CIs) and McNemar's test on the paired
+      per-image correctness
   table_models.tex / per_model_accuracy.csv
-      each model on its own test images (broad model: all test images;
-      Category k model: test images whose true family is k):
-      test images, correct, accuracy, macro-F1
-  table_hierarchy.tex / summary.json
-      full pipeline (broad model routes, family model predicts) on all test
-      images: routing accuracy, 34-class accuracy, macro-F1, weighted-F1,
-      with 95% bootstrap confidence intervals
-  per_class_report.csv      precision / recall / F1 / support, 34 classes
-  confusion_matrix_34.csv   rows = true class, columns = predicted class
-  predictions.csv           per-image true and predicted labels
+      each hierarchy model on its own test images (broad model: all test
+      images; Category k model: test images whose true family is k), with
+      the majority-class baseline for reference
+  per_class_report.csv      per class: support, precision/recall/F1 of both methods
+  confusion_matrix_34_{flat,hierarchy}.csv   rows = true, columns = predicted
+  predictions.csv           per-image true and predicted labels of both methods
 
 Usage (from classify_handshapes/, after train.train_teachers):
     python -m evaluation.evaluate_hierarchy
@@ -26,6 +31,7 @@ import os
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from scipy.stats import binomtest
 from sklearn.metrics import (
     accuracy_score, confusion_matrix, f1_score, precision_recall_fscore_support,
 )
@@ -62,6 +68,14 @@ def predict(model_name, paths, classes):
     return np.array(classes)[probs.argmax(axis=1)], probs.max(axis=1)
 
 
+def macro_f1(y_true, y_pred, labels):
+    return f1_score(y_true, y_pred, labels=labels, average='macro', zero_division=0)
+
+
+def weighted_f1(y_true, y_pred, labels):
+    return f1_score(y_true, y_pred, labels=labels, average='weighted', zero_division=0)
+
+
 def bootstrap_ci(y_true, y_pred, metric, n=N_BOOTSTRAP, seed=0):
     rng = np.random.default_rng(seed)
     y_true, y_pred = np.asarray(y_true), np.asarray(y_pred)
@@ -72,8 +86,25 @@ def bootstrap_ci(y_true, y_pred, metric, n=N_BOOTSTRAP, seed=0):
     return [float(np.percentile(stats, 2.5)), float(np.percentile(stats, 97.5))]
 
 
-def macro_f1(y_true, y_pred, labels):
-    return f1_score(y_true, y_pred, labels=labels, average='macro', zero_division=0)
+def fine_metrics(y_true, y_pred):
+    metrics = {
+        'accuracy_34': accuracy_score,
+        'macro_f1_34': lambda a, b: macro_f1(a, b, FINE_CLASSES),
+        'weighted_f1_34': lambda a, b: weighted_f1(a, b, FINE_CLASSES),
+    }
+    out = {}
+    for name, fn in metrics.items():
+        out[name] = float(fn(y_true, y_pred))
+        out[name + '_ci95'] = bootstrap_ci(y_true, y_pred, fn)
+    return out
+
+
+def mcnemar(y_true, pred_a, pred_b):
+    """Exact McNemar test on paired per-image correctness."""
+    a_ok, b_ok = pred_a == y_true, pred_b == y_true
+    only_a, only_b = int((a_ok & ~b_ok).sum()), int((~a_ok & b_ok).sum())
+    p = binomtest(only_a, only_a + only_b, 0.5).pvalue if only_a + only_b else 1.0
+    return {'only_flat_correct': only_a, 'only_hierarchy_correct': only_b, 'p_value': float(p)}
 
 
 def dataset_distribution(train_df, val_df, test_df):
@@ -87,24 +118,22 @@ def dataset_distribution(train_df, val_df, test_df):
     return pd.concat([df, pd.DataFrame([{'family': 'Total', **total.to_dict()}])], ignore_index=True)
 
 
-def per_model_results(test_df):
-    rows = []
-    pred_broad, conf_broad = predict('broad_category', test_df['path'], BROAD_CLASSES)
-    rows.append(dict(model='Broad classifier', classes=len(BROAD_CLASSES), test_images=len(test_df),
-                     correct=int((pred_broad == test_df['broad']).sum()),
-                     accuracy=accuracy_score(test_df['broad'], pred_broad),
-                     macro_f1=macro_f1(test_df['broad'], pred_broad, BROAD_CLASSES)))
-    family_preds = {}
+def per_model_results(test_df, pred_broad):
+    """Each hierarchy model on its own test images (the family models are
+    given the images of their true family, i.e. assuming correct routing)."""
+    def row(name, classes, y, pred):
+        majority = y.value_counts(normalize=True).iloc[0]
+        return dict(model=name, classes=len(classes), test_images=len(y), correct=int((pred == y).sum()),
+                    accuracy=accuracy_score(y, pred), macro_f1=macro_f1(y, pred, classes),
+                    majority_baseline=majority)
+
+    rows = [row('Broad classifier', BROAD_CLASSES, test_df['broad'], pred_broad)]
     for b in BROAD_CLASSES:
         sub = test_df[test_df['broad'] == b]
         classes = sorted(BROAD_CATEGORIES[b])
         pred, _ = predict('subcategory_' + b, sub['path'], classes)
-        family_preds[b] = pred
-        rows.append(dict(model='Category {} classifier'.format(b), classes=len(classes),
-                         test_images=len(sub), correct=int((pred == sub['subcategory']).sum()),
-                         accuracy=accuracy_score(sub['subcategory'], pred),
-                         macro_f1=macro_f1(sub['subcategory'], pred, classes)))
-    return pd.DataFrame(rows), pred_broad, conf_broad
+        rows.append(row('Category {} classifier'.format(b), classes, sub['subcategory'], pred))
+    return pd.DataFrame(rows)
 
 
 def run_hierarchy(test_df, pred_broad):
@@ -125,41 +154,41 @@ def pct(x):
 
 
 def write_tables(dist, models, summary):
-    t2 = ['\\begin{tabular}{lrrrrr}', '\\toprule',
-          '\\textbf{Broad family} & \\textbf{Fine classes} & \\textbf{Total images} & '
-          '\\textbf{Training images} & \\textbf{Validation images} & \\textbf{Test images} \\\\', '\\midrule']
+    t_data = ['\\begin{tabular}{lrrrrr}', '\\toprule',
+              '\\textbf{Broad family} & \\textbf{Fine classes} & \\textbf{Total images} & '
+              '\\textbf{Training images} & \\textbf{Validation images} & \\textbf{Test images} \\\\', '\\midrule']
     for _, r in dist.iterrows():
-        cells = [r['family'], r['fine_classes'], r['total'], r['train'], r['val'], r['test']]
-        cells = [cells[0]] + ['{:,}'.format(int(c)) for c in cells[1:]]
+        cells = [r['family']] + ['{:,}'.format(int(r[c])) for c in ('fine_classes', 'total', 'train', 'val', 'test')]
         if r['family'] == 'Total':
-            t2.append('\\midrule')
+            t_data.append('\\midrule')
             cells = ['\\textbf{%s}' % c for c in cells]
-        t2.append(' & '.join(cells) + ' \\\\')
-    t2 += ['\\bottomrule', '\\end{tabular}']
+        t_data.append(' & '.join(cells) + ' \\\\')
+    t_data += ['\\bottomrule', '\\end{tabular}']
 
-    t3 = ['\\begin{tabular}{lrrcc}', '\\toprule',
-          '\\textbf{Model} & \\textbf{Classes} & \\textbf{Test images} & '
-          '\\textbf{Test acc.} & \\textbf{Macro-F1} \\\\', '\\midrule']
+    t_cmp = ['\\begin{tabular}{lcccc}', '\\toprule',
+             '\\textbf{Method} & \\textbf{Models} & \\textbf{34-class accuracy} & '
+             '\\textbf{Macro-F1} & \\textbf{Weighted-F1} \\\\', '\\midrule']
+    for key, label, n_models in [('flat', 'Single 34-class model', 1),
+                                 ('hierarchy', 'Hierarchy (7 families)', 8)]:
+        m = summary[key]
+        acc_lo, acc_hi = m['accuracy_34_ci95']
+        f1_lo, f1_hi = m['macro_f1_34_ci95']
+        t_cmp.append('{} & {} & {} [{}, {}] & {:.4f} [{:.4f}, {:.4f}] & {:.4f} \\\\'.format(
+            label, n_models, pct(m['accuracy_34']), pct(acc_lo), pct(acc_hi),
+            m['macro_f1_34'], f1_lo, f1_hi, m['weighted_f1_34']))
+    t_cmp += ['\\bottomrule', '\\end{tabular}']
+
+    t_models = ['\\begin{tabular}{lrrccc}', '\\toprule',
+                '\\textbf{Model} & \\textbf{Classes} & \\textbf{Test images} & '
+                '\\textbf{Test acc.} & \\textbf{Macro-F1} & \\textbf{Majority baseline} \\\\', '\\midrule']
     for _, r in models.iterrows():
-        t3.append('{} & {} & {:,} & {} & {:.4f} \\\\'.format(
-            r['model'], r['classes'], r['test_images'], pct(r['accuracy']), r['macro_f1']))
-    t3 += ['\\bottomrule', '\\end{tabular}']
+        t_models.append('{} & {} & {:,} & {} & {:.4f} & {} \\\\'.format(
+            r['model'], r['classes'], r['test_images'], pct(r['accuracy']), r['macro_f1'],
+            pct(r['majority_baseline'])))
+    t_models += ['\\bottomrule', '\\end{tabular}']
 
-    s = summary
-    t4 = ['\\begin{tabular}{lcc}', '\\toprule',
-          '\\textbf{Metric} & \\textbf{Value} & \\textbf{95\\% CI} \\\\', '\\midrule']
-    for label, key in [('Broad routing accuracy (7 families)', 'routing_accuracy'),
-                       ('34-class accuracy', 'accuracy_34'),
-                       ('34-class macro-F1', 'macro_f1_34'),
-                       ('34-class weighted-F1', 'weighted_f1_34')]:
-        lo, hi = s[key + '_ci95']
-        if 'f1' in key:
-            t4.append('{} & {:.4f} & [{:.4f}, {:.4f}] \\\\'.format(label, s[key], lo, hi))
-        else:
-            t4.append('{} & {} & [{}, {}] \\\\'.format(label, pct(s[key]), pct(lo), pct(hi)))
-    t4 += ['\\bottomrule', '\\end{tabular}']
-
-    for name, lines in [('table_dataset.tex', t2), ('table_models.tex', t3), ('table_hierarchy.tex', t4)]:
+    for name, lines in [('table_dataset.tex', t_data), ('table_comparison.tex', t_cmp),
+                        ('table_models.tex', t_models)]:
         with open(os.path.join(OUT_DIR, name), 'w') as f:
             f.write('\n'.join(lines) + '\n')
 
@@ -167,40 +196,44 @@ def write_tables(dist, models, summary):
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     train_df, val_df, test_df = load_split_dataframes()
+    y = test_df['subcategory'].to_numpy()
 
     dist = dataset_distribution(train_df, val_df, test_df)
     dist.to_csv(os.path.join(OUT_DIR, 'dataset_distribution.csv'), index=False)
 
-    models, pred_broad, conf_broad = per_model_results(test_df)
+    pred_flat, conf_flat = predict('flat_34', test_df['path'], FINE_CLASSES)
+    pred_broad, conf_broad = predict('broad_category', test_df['path'], BROAD_CLASSES)
+    pred_hier, conf_hier = run_hierarchy(test_df, pred_broad)
+
+    models = per_model_results(test_df, pred_broad)
     models.to_csv(os.path.join(OUT_DIR, 'per_model_accuracy.csv'), index=False)
     print(models.to_string(index=False))
 
-    pred_fine, conf_fine = run_hierarchy(test_df, pred_broad)
-    y = test_df['subcategory'].to_numpy()
-    summary = dict(
-        test_images=len(test_df),
-        routing_accuracy=accuracy_score(test_df['broad'], pred_broad),
-        routing_accuracy_ci95=bootstrap_ci(test_df['broad'], pred_broad, accuracy_score),
-        accuracy_34=accuracy_score(y, pred_fine),
-        accuracy_34_ci95=bootstrap_ci(y, pred_fine, accuracy_score),
-        macro_f1_34=macro_f1(y, pred_fine, FINE_CLASSES),
-        macro_f1_34_ci95=bootstrap_ci(y, pred_fine, lambda a, b: macro_f1(a, b, FINE_CLASSES)),
-        weighted_f1_34=f1_score(y, pred_fine, labels=FINE_CLASSES, average='weighted', zero_division=0),
-        weighted_f1_34_ci95=bootstrap_ci(y, pred_fine, lambda a, b: f1_score(
-            a, b, labels=FINE_CLASSES, average='weighted', zero_division=0)),
-    )
+    summary = {
+        'test_images': len(test_df),
+        'flat': fine_metrics(y, pred_flat),
+        'hierarchy': dict(fine_metrics(y, pred_hier),
+                          routing_accuracy=float(accuracy_score(test_df['broad'], pred_broad))),
+        'mcnemar_flat_vs_hierarchy': mcnemar(y, pred_flat, pred_hier),
+    }
     with open(os.path.join(OUT_DIR, 'summary.json'), 'w') as f:
         json.dump(summary, f, indent=2)
     print(json.dumps(summary, indent=2))
 
-    p, r, f1, n = precision_recall_fscore_support(y, pred_fine, labels=FINE_CLASSES, zero_division=0)
-    pd.DataFrame({'class': FINE_CLASSES, 'precision': p, 'recall': r, 'f1': f1, 'support': n}).to_csv(
-        os.path.join(OUT_DIR, 'per_class_report.csv'), index=False)
-    pd.DataFrame(confusion_matrix(y, pred_fine, labels=FINE_CLASSES),
-                 index=FINE_CLASSES, columns=FINE_CLASSES).to_csv(os.path.join(OUT_DIR, 'confusion_matrix_34.csv'))
+    report = {'class': FINE_CLASSES}
+    for key, pred in [('flat', pred_flat), ('hierarchy', pred_hier)]:
+        p, r, f1, n = precision_recall_fscore_support(y, pred, labels=FINE_CLASSES, zero_division=0)
+        report['support'] = n
+        report.update({key + '_precision': p, key + '_recall': r, key + '_f1': f1})
+        pd.DataFrame(confusion_matrix(y, pred, labels=FINE_CLASSES), index=FINE_CLASSES,
+                     columns=FINE_CLASSES).to_csv(os.path.join(OUT_DIR, 'confusion_matrix_34_{}.csv'.format(key)))
+    pd.DataFrame(report).to_csv(os.path.join(OUT_DIR, 'per_class_report.csv'), index=False)
+
     pd.DataFrame({'path': test_df['path'].map(lambda q: '/'.join(q.split(os.sep)[-2:])),
-                  'true_broad': test_df['broad'], 'pred_broad': pred_broad, 'broad_confidence': conf_broad,
-                  'true_class': y, 'pred_class': pred_fine, 'class_confidence': conf_fine}).to_csv(
+                  'true_class': y, 'true_broad': test_df['broad'],
+                  'flat_pred': pred_flat, 'flat_confidence': conf_flat,
+                  'broad_pred': pred_broad, 'broad_confidence': conf_broad,
+                  'hierarchy_pred': pred_hier, 'hierarchy_confidence': conf_hier}).to_csv(
         os.path.join(OUT_DIR, 'predictions.csv'), index=False)
 
     write_tables(dist, models, summary)

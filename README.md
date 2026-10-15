@@ -1,11 +1,13 @@
 # classify_handshapes
 
-Hierarchical handshape classifier: 1 broad model (7 families) + 7 family
-models (34 fine-grained classes), EfficientNetB4.
+Handshape classifier over 34 fine-grained classes, EfficientNetB4, two methods
+trained and compared on the same split:
+- **flat**: one model over all 34 classes (`flat_34`),
+- **hierarchy**: 1 broad model (7 HamNoSys families) + 7 family models.
 
 ## Leakage-free split
 
-All 8 models share one train/val/test split, `data/splits/grouped_split.csv`
+All 9 models share one train/val/test split, `data/splits/grouped_split.csv`
 (80/10/10 per class). Frames of the same source video, byte-identical files
 and near-duplicate images are always in the same split. Images whose identical
 copies carry two different labels are excluded (`data/splits/label_conflicts.csv`:
@@ -33,8 +35,8 @@ export TEACHER_DATASET_DIR=/path/to/dataset
 bash run_training.sh
 ```
 
-`run_training.sh` checks the split for leakage, trains the 8 models
-(`models/teachers_grouped/`) and evaluates them (`results/paper/`). It is
+`run_training.sh` checks the split for leakage, trains the 9 models (flat + 8
+hierarchy, `models/teachers_grouped/`, about 16 GPU hours) and evaluates them (`results/paper/`). It is
 resumable: re-running skips finished models. Detach with `Ctrl-b d`, reattach
 with `tmux attach -t handshapes`.
 
@@ -43,8 +45,9 @@ with `tmux attach -t handshapes`.
 | File | Content |
 |---|---|
 | `table_dataset.tex` | Table 2: images per family and split |
-| `table_models.tex` | Per-model test accuracy and macro-F1 |
-| `table_hierarchy.tex` | Full pipeline: routing accuracy, 34-class accuracy, macro-F1, weighted-F1, 95% bootstrap CIs |
-| `per_class_report.csv` | Precision / recall / F1 / support per class |
-| `confusion_matrix_34.csv` | 34x34 confusion matrix |
+| `table_comparison.tex` | Flat vs hierarchy: 34-class accuracy, macro-F1, weighted-F1, 95% bootstrap CIs |
+| `table_models.tex` | Each hierarchy model: test accuracy, macro-F1, majority-class baseline |
+| `summary.json` | All numbers above + McNemar test (flat vs hierarchy) + routing accuracy |
+| `per_class_report.csv` | Precision / recall / F1 per class, both methods |
+| `confusion_matrix_34_{flat,hierarchy}.csv` | 34x34 confusion matrices |
 | `predictions.csv` | Per-image predictions |

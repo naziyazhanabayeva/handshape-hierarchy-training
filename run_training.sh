@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Retrain the 8 handshape models on the leakage-free split and produce the
+# Train the flat 34-class model and the 8 hierarchy models on the leakage-free split and produce the
 # paper tables. Run from classify_handshapes/ inside tmux:
 #
 #   tmux new -s handshapes
@@ -20,7 +20,7 @@ python -c "import tensorflow as tf; print('TF', tf.__version__, 'GPUs:', tf.conf
 echo "== 1/3 checking split for leakage"
 python -m data.check_split 2>&1 | tee logs/check_split.log
 
-echo "== 2/3 training 8 models"
+echo "== 2/3 training 9 models (flat_34 + 8 hierarchy)"
 python -m train.train_teachers "$@" 2>&1 | tee -a logs/train.log
 
 echo "== 3/3 evaluating"

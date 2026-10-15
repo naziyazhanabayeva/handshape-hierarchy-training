@@ -20,8 +20,8 @@ Resumable: a model whose <model>_test_metrics.json exists is skipped, and a
 model that finished stage 1 resumes from its linear-probe checkpoint.
 
 Usage (from classify_handshapes/):
-    python -m train.train_teachers                  # all 8 models
-    python -m train.train_teachers broad_category subcategory_3   # only these
+    python -m train.train_teachers                  # flat_34 baseline + all 8 hierarchy models
+    python -m train.train_teachers flat_34 subcategory_3   # only these
 """
 import json
 import os
@@ -33,7 +33,7 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
 from tensorflow.keras.models import load_model
 
 from data.const import BROAD_CATEGORIES, N_EPOCHS, PATIENCE, FT_LEARNING_RATE, FT_EPOCHS, FT_PATIENCE
-from data.teacher_dataset import load_broad_category_datasets, load_subcategory_datasets
+from data.teacher_dataset import load_broad_category_datasets, load_flat_datasets, load_subcategory_datasets
 from train.teacher_model import build_teacher_model, unfreeze_for_finetuning
 
 MODELS_DIR = os.environ.get(
@@ -110,9 +110,19 @@ def train_subcategory_model(broad_category):
     return _train(model_name, num_classes, train_ds, val_ds, test_ds, train_label_indices)
 
 
+def train_flat_model():
+    """Baseline: one model over all 34 fine-grained classes, same recipe and
+    split as the hierarchy, to test whether the hierarchy is needed."""
+    train_ds, val_ds, test_ds, num_classes, train_label_indices = load_flat_datasets()
+    return _train('flat_34', num_classes, train_ds, val_ds, test_ds, train_label_indices)
+
+
 def train_all_teacher_models(model_names=None):
-    """Trains the full set of 8 teacher models: 1 broad-category model
-    plus 1 subcategory model per broad category (or only `model_names`)."""
+    """Trains the flat 34-class baseline and the 8 hierarchy models: 1
+    broad-category model plus 1 subcategory model per broad category (or
+    only `model_names`)."""
+    if model_names is None or 'flat_34' in model_names:
+        train_flat_model()
     if model_names is None or 'broad_category' in model_names:
         train_broad_category_model()
     for broad_category in BROAD_CATEGORIES:

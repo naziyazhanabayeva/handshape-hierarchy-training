@@ -189,6 +189,12 @@ def load_broad_category_datasets():
     return build_datasets(*splits)
 
 
+def load_flat_datasets():
+    """Single-model baseline: all 34 fine-grained classes at once."""
+    splits = [df.assign(label=df['subcategory']) for df in load_split_dataframes()]
+    return build_datasets(*splits)
+
+
 def load_subcategory_datasets(broad_category):
     splits = [
         df[df['broad'] == broad_category].assign(label=lambda d: d['subcategory'])
