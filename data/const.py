@@ -95,6 +95,28 @@ BROAD_CATEGORIES = {
           '7_4_1', '7_4_2', '7_4_3', '7_6_1', '7_6_3', '7_6_4'],
 }
 
+# Alternative hierarchy of the original SLAN-tool paper (Fig. 5C/5D): the same
+# 34 classes grouped by HamNoSys chart COLUMN (finger shape) instead of row
+# (selected fingers). Class '<row>_<col>' -> column <col>; thumb-opposition
+# class '7_<row>_<col>' -> column 5 + <col>. Column 4 (Hooked) has a single
+# class, so it needs no sub-model.
+COLUMN_CATEGORIES = {
+    '1': ['1_1', '2_1', '3_1', '4_1', '5_1', '6_1'],   # Selected fingers extended
+    '2': ['2_2', '3_2', '4_2', '5_2', '6_2'],          # flattened
+    '3': ['1_3', '2_3', '3_3', '4_3', '5_3', '6_3'],   # bent
+    '4': ['5_4'],                                      # hooked
+    '5': ['2_5', '3_5', '4_5', '5_5', '6_5'],          # derivation examples
+    '6': ['7_1_1', '7_4_1', '7_6_1'],                  # thumb opposition, fingers rounded
+    '7': ['7_1_2', '7_2_2', '7_4_2'],                  # thumb opposition, fingers flattened
+    '8': ['7_1_3', '7_4_3', '7_6_3'],                  # other thumb-opposition columns
+    '9': ['7_1_4', '7_6_4'],                           # thumb opposition, derivation examples
+}
+
+
+def column_category(subcategory):
+    parts = subcategory.split('_')
+    return parts[1] if parts[0] != '7' else str(5 + int(parts[2]))
+
 # Repo root, computed dynamically so this doesn't break on machines other
 # than the original authors' (previously hardcoded to '/home/kenny/...' and
 # '/Users/madina/...').

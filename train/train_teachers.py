@@ -20,8 +20,8 @@ Resumable: a model whose <model>_test_metrics.json exists is skipped, and a
 model that finished stage 1 resumes from its linear-probe checkpoint.
 
 Usage (from classify_handshapes/):
-    python -m train.train_teachers                  # flat_34 baseline + all 8 hierarchy models
-    python -m train.train_teachers flat_34 subcategory_3   # only these
+    python -m train.train_teachers                  # all 18 models of the 3 methods
+    python -m train.train_teachers flat_34 column_category   # only these
 """
 import json
 import os
@@ -32,8 +32,11 @@ from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, CSVLogger
 from tensorflow.keras.models import load_model
 
-from data.const import BROAD_CATEGORIES, N_EPOCHS, PATIENCE, FT_LEARNING_RATE, FT_EPOCHS, FT_PATIENCE
-from data.teacher_dataset import load_broad_category_datasets, load_flat_datasets, load_subcategory_datasets
+from data.const import BROAD_CATEGORIES, COLUMN_CATEGORIES, N_EPOCHS, PATIENCE, FT_LEARNING_RATE, FT_EPOCHS, FT_PATIENCE
+from data.teacher_dataset import (
+    load_broad_category_datasets, load_column_category_datasets, load_column_subcategory_datasets,
+    load_flat_datasets, load_subcategory_datasets,
+)
 from train.teacher_model import build_teacher_model, unfreeze_for_finetuning
 
 MODELS_DIR = os.environ.get(
@@ -117,17 +120,44 @@ def train_flat_model():
     return _train('flat_34', num_classes, train_ds, val_ds, test_ds, train_label_indices)
 
 
+def train_column_category_model():
+    train_ds, val_ds, test_ds, num_classes, train_label_indices = load_column_category_datasets()
+    return _train('column_category', num_classes, train_ds, val_ds, test_ds, train_label_indices)
+
+
+def train_column_subcategory_model(column):
+    train_ds, val_ds, test_ds, num_classes, train_label_indices = load_column_subcategory_datasets(column)
+    return _train('column_subcategory_' + column, num_classes, train_ds, val_ds, test_ds, train_label_indices)
+
+
+def all_model_names():
+    return (['flat_34', 'broad_category']
+            + ['subcategory_' + b for b in BROAD_CATEGORIES]
+            + ['column_category']
+            + ['column_subcategory_' + c for c, subs in COLUMN_CATEGORIES.items() if len(subs) > 1])
+
+
 def train_all_teacher_models(model_names=None):
-    """Trains the flat 34-class baseline and the 8 hierarchy models: 1
-    broad-category model plus 1 subcategory model per broad category (or
-    only `model_names`)."""
-    if model_names is None or 'flat_34' in model_names:
-        train_flat_model()
-    if model_names is None or 'broad_category' in model_names:
-        train_broad_category_model()
-    for broad_category in BROAD_CATEGORIES:
-        if model_names is None or 'subcategory_' + broad_category in model_names:
-            train_subcategory_model(broad_category)
+    """Trains every model of the three methods (or only `model_names`):
+      flat_34                                  single 34-class model
+      broad_category + subcategory_1..7        hierarchy by HamNoSys row (7 families)
+      column_category + column_subcategory_*   hierarchy by HamNoSys column (original
+                                               paper, Fig. 5C/5D; column 4 has one
+                                               class and needs no sub-model)
+    """
+    for name in model_names or all_model_names():
+        if name == 'flat_34':
+            train_flat_model()
+        elif name == 'broad_category':
+            train_broad_category_model()
+        elif name == 'column_category':
+            train_column_category_model()
+        elif name.startswith('column_subcategory_'):
+            train_column_subcategory_model(name.rsplit('_', 1)[1])
+        elif name.startswith('subcategory_'):
+            train_subcategory_model(name.rsplit('_', 1)[1])
+        else:
+            raise ValueError('unknown model name: ' + name)
 
 
 if __name__ == '__main__':

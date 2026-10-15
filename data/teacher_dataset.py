@@ -36,7 +36,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 from data.const import (
-    BROAD_CATEGORIES, IMG_SIZE, BATCH_SIZE, TEACHER_DATASET_DIR, SPLIT_FILE,
+    BROAD_CATEGORIES, IMG_SIZE, BATCH_SIZE, TEACHER_DATASET_DIR, SPLIT_FILE, column_category,
     TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT,
 )
 
@@ -177,10 +177,11 @@ def build_datasets(train_df, val_df, test_df):
 def load_split_dataframes(split_file=SPLIT_FILE, dataset_dir=TEACHER_DATASET_DIR):
     """(train_df, val_df, test_df) from the shared leakage-free split file
     (see data/make_grouped_split.py). Columns: path (absolute), subcategory,
-    broad. The same split is used by every model of the hierarchy."""
+    broad (HamNoSys row family), column (HamNoSys column category, Fig. 5C). The same split is used by every model of the hierarchy."""
     df = pd.read_csv(split_file, dtype=str)
     df['path'] = [os.path.join(dataset_dir, p) for p in df['path']]
     df = df.rename(columns={'cls': 'subcategory'})
+    df['column'] = df['subcategory'].map(column_category)
     return tuple(df[df['split'] == name].reset_index(drop=True) for name in ('train', 'val', 'test'))
 
 
@@ -198,6 +199,21 @@ def load_flat_datasets():
 def load_subcategory_datasets(broad_category):
     splits = [
         df[df['broad'] == broad_category].assign(label=lambda d: d['subcategory'])
+        for df in load_split_dataframes()
+    ]
+    return build_datasets(*splits)
+
+
+def load_column_category_datasets():
+    """Original-paper hierarchy (Fig. 5C): broad model over 9 column categories."""
+    splits = [df.assign(label=df['column']) for df in load_split_dataframes()]
+    return build_datasets(*splits)
+
+
+def load_column_subcategory_datasets(column):
+    """Original-paper hierarchy (Fig. 5D): fine classes within one column category."""
+    splits = [
+        df[df['column'] == column].assign(label=lambda d: d['subcategory'])
         for df in load_split_dataframes()
     ]
     return build_datasets(*splits)
