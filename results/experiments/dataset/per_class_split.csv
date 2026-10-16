@@ -1,0 +1,35 @@
+class,chart_block,hamnosys_row,hamnosys_column,B_row_category,C_column_category,train,val,test,total
+1_1,Handshape,Fist,Selected Fingers Extended,1,1,10776,1347,1347,13470
+1_3,Handshape,Fist,Selected Fingers Bent,1,3,74,11,54,139
+2_1,Handshape,One Finger,Selected Fingers Extended,2,1,10392,1299,1299,12990
+2_2,Handshape,One Finger,Selected Fingers Flattened,2,2,610,76,76,762
+2_3,Handshape,One Finger,Selected Fingers Bent,2,3,1901,238,237,2376
+2_5,Handshape,One Finger,Derivation Examples,2,5,1488,186,186,1860
+3_1,Handshape,Two Fingers nonspread,Selected Fingers Extended,3,1,1142,143,142,1427
+3_2,Handshape,Two Fingers nonspread,Selected Fingers Flattened,3,2,232,30,32,294
+3_3,Handshape,Two Fingers nonspread,Selected Fingers Bent,3,3,120,19,16,155
+3_5,Handshape,Two Fingers nonspread,Derivation Examples,3,5,227,28,27,282
+4_1,Handshape,Two Fingers spread,Selected Fingers Extended,4,1,2868,359,358,3585
+4_2,Handshape,Two Fingers spread,Selected Fingers Flattened,4,2,83,8,9,100
+4_3,Handshape,Two Fingers spread,Selected Fingers Bent,4,3,993,124,124,1241
+4_5,Handshape,Two Fingers spread,Derivation Examples,4,5,460,58,57,575
+5_1,Handshape,Flathand (Four Fingers nonspread),Selected Fingers Extended,5,1,14805,1851,1850,18506
+5_2,Handshape,Flathand (Four Fingers nonspread),Selected Fingers Flattened,5,2,2926,366,365,3657
+5_3,Handshape,Flathand (Four Fingers nonspread),Selected Fingers Bent,5,3,1117,140,139,1396
+5_4,Handshape,Flathand (Four Fingers nonspread),Selected Fingers Hooked,5,4,119,20,15,154
+5_5,Handshape,Flathand (Four Fingers nonspread),Derivation Examples,5,5,175,21,20,216
+6_1,Handshape,Four Fingers spread,Selected Fingers Extended,6,1,7210,902,901,9013
+6_2,Handshape,Four Fingers spread,Selected Fingers Flattened,6,2,108,11,9,128
+6_3,Handshape,Four Fingers spread,Selected Fingers Bent,6,3,3301,413,412,4126
+6_5,Handshape,Four Fingers spread,Derivation Examples,6,5,811,102,101,1014
+7_1_1,Thumb opposition,"One Finger, others in fist position",Fingertip-Thumbtip Opposition w/ fingers rounded,7,6,1670,209,208,2087
+7_1_2,Thumb opposition,"One Finger, others in fist position",Fingertip-Thumbtip Opposition w/ fingers flattened,7,7,1179,148,147,1474
+7_1_3,Thumb opposition,"One Finger, others in fist position","Other thumb-opposition columns (fingers straight, hitchhiker's fingers, thumb interphalangeal / metacarpophalangeal joint)",7,8,122,16,15,153
+7_1_4,Thumb opposition,"One Finger, others in fist position",Derivation Examples,7,9,4489,561,560,5610
+7_2_2,Thumb opposition,"Two Fingers (nonspread), others in fist position",Fingertip-Thumbtip Opposition w/ fingers flattened,8,7,166,21,20,207
+7_4_1,Thumb opposition,Four Fingers (nonspread),Fingertip-Thumbtip Opposition w/ fingers rounded,9,6,2548,319,318,3185
+7_4_2,Thumb opposition,Four Fingers (nonspread),Fingertip-Thumbtip Opposition w/ fingers flattened,9,7,2573,322,321,3216
+7_4_3,Thumb opposition,Four Fingers (nonspread),"Other thumb-opposition columns (fingers straight, hitchhiker's fingers, thumb interphalangeal / metacarpophalangeal joint)",9,8,97,15,12,124
+7_6_1,Thumb opposition,"One Finger, others extended (spread)",Fingertip-Thumbtip Opposition w/ fingers rounded,10,6,2515,315,314,3144
+7_6_3,Thumb opposition,"One Finger, others extended (spread)","Other thumb-opposition columns (fingers straight, hitchhiker's fingers, thumb interphalangeal / metacarpophalangeal joint)",10,8,1157,145,144,1446
+7_6_4,Thumb opposition,"One Finger, others extended (spread)",Derivation Examples,10,9,1264,132,129,1525

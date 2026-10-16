@@ -1,0 +1,6 @@
+images on disk: 99757, in split file: 99637, label conflicts: 120
+source videos: 5174 (0 span splits)
+MD5 groups spanning splits: 0
+near-duplicate pairs: 181456 (0 cross splits)
+
+OK: no leakage between train, val and test.

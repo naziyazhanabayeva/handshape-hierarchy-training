@@ -1,0 +1,43 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1792063444.370139   13828 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1792063444.401928   13828 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1792063445.269694   13828 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1792063446.486314   13828 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22631 MB memory:  -> device: 0, name: NVIDIA TITAN RTX, pci bus id: 0000:01:00.0, compute capability: 7.5
+I0000 00:00:1792063446.487891   13828 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:1 with 22227 MB memory:  -> device: 1, name: NVIDIA TITAN RTX, pci bus id: 0000:02:00.0, compute capability: 7.5
+[ok] loader feeds raw [0, 255] pixels (min 0.0, max 255.0)
+[ok] evaluation preprocessing identical to training preprocessing
+[ok] validation/test pipeline is deterministic (no augmentation)
+[ok] no augmentation in validation/test pipeline
+[ok] augmentation applied exactly once in training pipeline (1 map)
+[ok] training images are actually augmented
+[ok] augmented pixels stay in [0, 255] (min 0.0, max 250.5)
+[ok] augmentation is RandAugment (original paper)
+[ok] RandAugment operations contain no flips: ['RandomShear', 'RandomTranslation', 'RandomRotation', 'RandomBrightness', 'RandomColorDegeneration', 'RandomContrast', 'RandomSharpness', 'Solarization', 'RandomPosterization', 'AutoContrast', 'Equalization']
+[ok] model has exactly one 1/255 Rescaling layer (found 1)
+[ok] model contains no augmentation layers []
+[ok] single-stage fine-tuning: all 160 backbone conv layers trainable, 96 backbone BatchNorm frozen
+[ok] A flat_34: 79718 train / 9955 val / 9964 test images, disjoint, every class in all splits
+[ok] B broad: 79718 train / 9955 val / 9964 test images, disjoint, every class in all splits
+[ok] B sub_1: 10850 train / 1358 val / 1401 test images, disjoint, every class in all splits
+[ok] B sub_10: 4936 train / 592 val / 587 test images, disjoint, every class in all splits
+[ok] B sub_2: 14391 train / 1799 val / 1798 test images, disjoint, every class in all splits
+[ok] B sub_3: 1721 train / 220 val / 217 test images, disjoint, every class in all splits
+[ok] B sub_4: 4404 train / 549 val / 548 test images, disjoint, every class in all splits
+[ok] B sub_5: 19142 train / 2398 val / 2389 test images, disjoint, every class in all splits
+[ok] B sub_6: 11430 train / 1428 val / 1423 test images, disjoint, every class in all splits
+[ok] B sub_7: 7460 train / 934 val / 930 test images, disjoint, every class in all splits
+[ok] B sub_9: 5218 train / 656 val / 651 test images, disjoint, every class in all splits
+[ok] C broad: 79718 train / 9955 val / 9964 test images, disjoint, every class in all splits
+[ok] D sub_1: 47193 train / 5901 val / 5897 test images, disjoint, every class in all splits
+[ok] D sub_2: 3959 train / 491 val / 491 test images, disjoint, every class in all splits
+[ok] D sub_3: 7506 train / 945 val / 982 test images, disjoint, every class in all splits
+[ok] D sub_5: 3161 train / 395 val / 391 test images, disjoint, every class in all splits
+[ok] D sub_6: 6733 train / 843 val / 840 test images, disjoint, every class in all splits
+[ok] D sub_7: 3918 train / 491 val / 488 test images, disjoint, every class in all splits
+[ok] D sub_8: 1376 train / 176 val / 171 test images, disjoint, every class in all splits
+[ok] D sub_9: 5753 train / 693 val / 689 test images, disjoint, every class in all splits
+[ok] test split covers all 34 classes
+
+OK: all pipeline checks passed.
