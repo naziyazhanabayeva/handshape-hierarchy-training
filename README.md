@@ -65,6 +65,31 @@ example: machine 1 `bash run_experiments.sh A C D`, machine 2
 (e.g. `B_rows_10/`), then run `python -m evaluation.evaluate_experiments` to
 produce the comparison of all experiments.
 
+## Restoring the trained models on another computer
+
+The 20 trained models and the dataset are not in the repo; they are kept as
+two archives (Google Drive):
+
+- `handshape_ABCD_models_20261017.tar.gz` (3.9 GB): `experiments/` with every
+  `<model>_best.keras`, `_history.csv`, `_test_metrics.json`, plus `SHA256SUMS.txt`
+- `handshape_dataset_20261017.tar.gz` (2.2 GB): `dataset/` (all 36 class
+  folders, 99,780 images) plus `dataset_SHA256SUMS.txt`
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-lock.txt   # exact versions used for training (TF 2.21.0, Keras 3.15.1)
+mkdir -p models && tar -xzf handshape_ABCD_models_20261017.tar.gz -C models/
+(cd models/experiments && sha256sum -c --quiet SHA256SUMS.txt)
+tar -xzf handshape_dataset_20261017.tar.gz -C ~/Desktop/
+(cd ~/Desktop && sha256sum -c --quiet dataset_SHA256SUMS.txt)
+export TEACHER_DATASET_DIR=~/Desktop/dataset
+```
+
+Then `python -m evaluation.make_figures` (needs only the models archive),
+`python -m evaluation.evaluate_experiments` (models + dataset, re-predicts the
+test set) or `python -m data.check_split` / `check_pipeline` (dataset). Some
+image file names contain `*`, so extract the dataset on Linux/macOS, not Windows.
+
 ## Results for the paper (`results/experiments/`)
 
 | Folder | Contents |
