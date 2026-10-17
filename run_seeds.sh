@@ -4,8 +4,11 @@
 # run (models/experiments/) counts as seed 1 and is never touched; seed N
 # writes to models/experiments_seedN/ and results/experiments_seedN/.
 #
-# Run from the repo root inside tmux:
-#   tmux new -d -s seeds "bash run_seeds.sh 2>&1 | tee -a logs/seeds.log"
+# Run from the repo root inside tmux, one seed per GPU (each training uses a
+# single GPU, so two seeds on two GPUs never compete for memory):
+#   tmux new -d -s seed2 "CUDA_VISIBLE_DEVICES=0 bash run_seeds.sh 2 2>&1 | tee -a logs/seeds_2.log"
+#   tmux new -d -s seed3 "CUDA_VISIBLE_DEVICES=1 bash run_seeds.sh 3 2>&1 | tee -a logs/seeds_3.log"
+# Never run the same seed in two sessions at once.
 #
 # Resumable: re-running skips finished models and resumes an interrupted one.
 set -uo pipefail
