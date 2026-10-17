@@ -1,18 +1,18 @@
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1792063444.370139   13828 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-I0000 00:00:1792063444.401928   13828 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+I0000 00:00:1792169682.389933  777619 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1792169682.421999  777619 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
 WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
-I0000 00:00:1792063445.269694   13828 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
-I0000 00:00:1792063446.486314   13828 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22631 MB memory:  -> device: 0, name: NVIDIA TITAN RTX, pci bus id: 0000:01:00.0, compute capability: 7.5
-I0000 00:00:1792063446.487891   13828 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:1 with 22227 MB memory:  -> device: 1, name: NVIDIA TITAN RTX, pci bus id: 0000:02:00.0, compute capability: 7.5
+I0000 00:00:1792169683.316735  777619 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1792169684.705116  777619 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22631 MB memory:  -> device: 0, name: NVIDIA TITAN RTX, pci bus id: 0000:01:00.0, compute capability: 7.5
+I0000 00:00:1792169684.706358  777619 gpu_device.cc:2043] Created device /job:localhost/replica:0/task:0/device:GPU:1 with 22622 MB memory:  -> device: 1, name: NVIDIA TITAN RTX, pci bus id: 0000:02:00.0, compute capability: 7.5
 [ok] loader feeds raw [0, 255] pixels (min 0.0, max 255.0)
 [ok] evaluation preprocessing identical to training preprocessing
 [ok] validation/test pipeline is deterministic (no augmentation)
 [ok] no augmentation in validation/test pipeline
 [ok] augmentation applied exactly once in training pipeline (1 map)
 [ok] training images are actually augmented
-[ok] augmented pixels stay in [0, 255] (min 0.0, max 250.5)
+[ok] augmented pixels stay in [0, 255] (min 0.0, max 255.0)
 [ok] augmentation is RandAugment (original paper)
 [ok] RandAugment operations contain no flips: ['RandomShear', 'RandomTranslation', 'RandomRotation', 'RandomBrightness', 'RandomColorDegeneration', 'RandomContrast', 'RandomSharpness', 'Solarization', 'RandomPosterization', 'AutoContrast', 'Equalization']
 [ok] model has exactly one 1/255 Rescaling layer (found 1)

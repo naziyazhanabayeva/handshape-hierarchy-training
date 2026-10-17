@@ -74,6 +74,7 @@ produce the comparison of all experiments.
 | `B_rows_10/` | `table_B.tex` (broad + each row model + full hierarchy), 10×10 and 34×34 confusion matrices, per-class report, predictions |
 | `C_columns_9/` | `table_C.tex`, 9×9 confusion matrix, predictions |
 | `D_column_subcategories/` | `table_D.tex` (each column model + full hierarchy C→D), per-class report, 34×34 confusion matrix, predictions |
+| `figures/` | `python -m evaluation.make_figures` (PNG 300 dpi + PDF): confusion matrices (A, B 10/34, C, D 34), per-sub-model accuracy/macro-F1 (B, D), training curves (A, B broad, C broad, B and D sub-models), `comparison_34class`, `comparison_broad_level`, `per_class_f1_comparison` |
 | `comparison/` | `table_comparison.tex` (A vs B vs C+D: 34-class accuracy, macro-F1 with 95% CIs), `table_broad_level.tex` (B vs C broad), `summary.json` (all numbers + McNemar tests) |
 
 Sub-model rows use the test images of the model's own category; the full
