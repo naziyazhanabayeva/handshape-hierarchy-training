@@ -22,6 +22,7 @@ import json
 import os
 import sys
 
+import keras
 import numpy as np
 import pandas as pd
 from sklearn.utils.class_weight import compute_class_weight
@@ -35,6 +36,9 @@ from train.teacher_model import build_finetune_model
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR = os.environ.get('EXPERIMENT_MODELS_DIR', os.path.join(ROOT, 'models', 'experiments'))
+# Repeat runs: export SEED=2 (with EXPERIMENT_MODELS_DIR / RESULTS_DIR pointing
+# to that seed's folders, see run_seeds.sh). Unset = the first, unseeded run.
+SEED = int(os.environ['SEED']) if os.environ.get('SEED') else None
 
 
 def _class_weight(train_label_indices):
@@ -67,6 +71,10 @@ def train_model(model_dir, model_name, category_of, keep):
         print('[skip] {}: already trained'.format(model_dir), flush=True)
         return
     os.makedirs(model_dir, exist_ok=True)
+    if SEED is not None:
+        # Head initialization, dropout and RandAugment draws; GPU kernels can
+        # still add small run-to-run differences.
+        keras.utils.set_random_seed(SEED)
     train_ds, val_ds, test_ds, num_classes, train_label_indices = load_experiment_datasets(category_of, keep)
     print('[train] {}: {} classes, {} training images'.format(
         model_dir, num_classes, len(train_label_indices)), flush=True)

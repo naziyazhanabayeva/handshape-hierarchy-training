@@ -41,7 +41,9 @@ from data.const import (
 )
 
 IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg')
-SHUFFLE_SEED = 1337
+# Repeat runs (export SEED=2, 3, ...) also vary the shuffle order; the first
+# run used 1337.
+SHUFFLE_SEED = int(os.environ.get('SEED', 1337))
 
 
 def _list_images(folder):
